@@ -1,6 +1,9 @@
 # Lane Label Maker
  
 Short Cuts:
+1 : Polygon draw
+
+2 : Polynome fit draw
 
 Q : Clear photo
 

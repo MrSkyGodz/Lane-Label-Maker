@@ -18,10 +18,11 @@ class Window(QMainWindow):
 		self.idx = 0
 		self.lane = 0
 		self.dots = []
+		self.max = len(self.images)
 
-		top, left, width, height = 400, 400, 800, 600
+		self.top, self.left, self.width, self.height = 400, 400, 800, 600
 		self.setWindowTitle("MyPainter")
-		self.setGeometry(top, left, width, height)
+		self.setGeometry(self.top, self.left, self.width, self.height)
 
 		self.image = QImage(self.size(), QImage.Format_ARGB32)
 		self.image.fill(Qt.white)
@@ -32,7 +33,7 @@ class Window(QMainWindow):
 
 
 		self.drawing = False
-		self.brushSize = 2
+		self.brushSize = 10
 		self.brushColor = QColor(Qt.black)
 		self.lastPoint = QPoint()
 		
@@ -41,11 +42,17 @@ class Window(QMainWindow):
 		self.points = QPolygon()
 
 		self.change = False
+		self.drawType = 1
+
 		self.nextImg()
+
 		
 	def nextImg(self):
+		if(self.idx >= self.max):
+			self.idx = self.max -1
+			return
 		print(self.dots)
-
+		self.setWindowTitle(self.images[self.idx])
 		with open(os.path.join(self.imgPath,self.images[self.idx]), 'rb') as f:
 			content = f.read()
 			self.image.loadFromData(content)
@@ -61,14 +68,23 @@ class Window(QMainWindow):
 
 		if event.key() == Qt.Key_Space:
 			
-			if(self.lane != 2):
+			
+			if(self.drawType == 1):
+				if(len(self.dots) > 2):
+					print(len(self.dots))
+					self.buildPath()
+					self.paintPolygon()
+			else:
+
 				self.polynomFit()
-				self.paintPoly()
-				
+				self.paintPolynom()
+					
+			if(self.drawType == 2 or (len(self.dots) > 2)):
 				self.imageDot.fill(Qt.transparent)
 				self.dots = []
+				self.points = QPolygon()
 				self.lane += 1
-			
+				
 
 		if event.key() == Qt.Key_Q:
 			print(self.dots)
@@ -92,25 +108,32 @@ class Window(QMainWindow):
 				self.idx = 0		
 			self.nextImg()
 			self.clearAll()
-			
+
+		if event.key() == Qt.Key_1:
+			self.drawType = 1	
+
+		if event.key() == Qt.Key_2:
+			self.drawType = 2
+
 
 		self.update()
 
 	def clearAll(self):
 		self.lane = 0
 		self.dots = []
+		self.points = QPolygon()
 		self.imageDot.fill(Qt.transparent)
 		self.imageDraw.fill(Qt.transparent)
 
 	def mousePressEvent(self, event):
 		if event.button() == Qt.LeftButton:
-			if(self.lane != 2):
-				self.lastPoint = event.pos()
+			
+			self.lastPoint = event.pos()
 
-				self.points << event.pos()
+			self.points << event.pos()
 
-				self.dots.append(self.lastPoint)
-				self.paintDot(event)
+			self.dots.append(self.lastPoint)
+			self.paintDot(event)
 
 		if event.button() == Qt.RightButton:
 			self.cutHorizon(event)
@@ -131,20 +154,23 @@ class Window(QMainWindow):
 		ptr.setsize(incomingImage.byteCount())
 		arr = np.array(ptr).reshape(height, width, 3)  #  Copies the data
 		gray = np.zeros((height,width))
+		gray2 = np.zeros((height,width))
 		gray[:,:] = arr[:,:,0]
+		gray2 = arr[:,:,0] >= 1
+
 		if(flag == 1):
 			plt.imshow(gray, interpolation='nearest')
 			plt.show()
-		
-		plt.imsave(os.path.join(self.labelPath,"Grandtruth",str(self.idx) + ".png"), gray, cmap='gray')
-		
+
+		plt.imsave(os.path.join(self.labelPath,"PolyGrandtruth",str(self.idx) + ".png"), gray, cmap='gray')
+		plt.imsave(os.path.join(self.labelPath,"BinaryGrandtruth",str(self.idx) + ".png"), gray2, cmap='gray')
 		shutil.copyfile(os.path.join(self.imgPath,self.images[self.idx]), os.path.join(self.labelPath,"images",str(self.idx) + ".jpg"))
 		# print(self.backimg)
 
 	def paintDot(self, event):
 		painter = QPainter(self.imageDot)
 		painter.setPen(QPen(Qt.green,  5, Qt.SolidLine))
-		painter.drawEllipse(event.pos(),10,10)
+		painter.drawEllipse(event.pos(),2,2)
 		
 
 
@@ -165,22 +191,62 @@ class Window(QMainWindow):
 		print(z)
 		self.p = np.poly1d(z)
 	
-	def paintPoly(self):
+	def paintPolynom(self):
 		painter = QPainter(self.imageDraw)
-		if(self.lane == 0):
-			pen = QPen(QColor(1,0,0))
-		else:
-			pen = QPen(QColor(2,0,0))
-		pen.setWidth(10)
+		
+		pen = QPen(QColor(self.lane+1,0,0))
+		
+			
+		pen.setWidth(self.brushSize)
 		painter.setPen(pen)
 		painter.setRenderHint(QPainter.Antialiasing, True)
 
 		for i,pos in enumerate([self.p(i) for i in range(600)]):
 			painter.drawPoint(pos,i)
+	
+	def buildPath(self):
+		factor = 0.25
+		self.path = QPainterPath(self.points[0])
+		for p, current in enumerate(self.points[1:-1], 1):
+			# previous segment
+			source = QLineF(self.points[p - 1], current)
+			# next segment
+			target = QLineF(current, self.points[p + 1])
+			targetAngle = target.angleTo(source)
+			if targetAngle > 180:
+				angle = (source.angle() + source.angleTo(target) / 2) % 360
+			else:
+				angle = (target.angle() + target.angleTo(source) / 2) % 360
+
+			revTarget = QLineF.fromPolar(source.length() * factor, angle + 180).translated(current)
+			cp2 = revTarget.p2()
+
+			if p == 1:
+				self.path.quadTo(cp2, current)
+			else:
+				# use the control point "cp1" set in the *previous* cycle
+				self.path.cubicTo(cp1, cp2, current)
+
+			revSource = QLineF.fromPolar(target.length() * factor, angle).translated(current)
+			cp1 = revSource.p2()
+
+		# the final curve, that joins to the last point
+		self.path.quadTo(cp1, self.points[-1])
+
+	def paintPolygon(self):
+		painter = QPainter(self.imageDraw)
+		
+		pen = QPen(QColor(self.lane+1,0,0))
+		
+		pen.setWidth(self.brushSize)
+		painter.setPen(pen)
+		painter.setRenderHint(QPainter.Antialiasing, True)
+
+		painter.drawPath(self.path)
 
 	def cutHorizon(self,event):
 		painter = QPainter(self.imageDraw)
-		r = QRect(0,0, 800,event.pos().y())
+		r = QRect(0,0, self.width,event.pos().y())
 		painter.save()
 		painter.setCompositionMode(QPainter.CompositionMode_Clear)
 		painter.eraseRect(r)
