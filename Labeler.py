@@ -188,21 +188,22 @@ class Window(QMainWindow):
 			x.append(self.dots[i].x())
 			y.append(self.dots[i].y())
 		z = np.polyfit(y, x, 3)
-		print(z)
+		
 		self.p = np.poly1d(z)
+		
 	
 	def paintPolynom(self):
 		painter = QPainter(self.imageDraw)
 		
 		pen = QPen(QColor(self.lane+1,0,0))
 		
-			
+		
 		pen.setWidth(self.brushSize)
 		painter.setPen(pen)
 		painter.setRenderHint(QPainter.Antialiasing, True)
 
 		for i,pos in enumerate([self.p(i) for i in range(600)]):
-			painter.drawPoint(pos,i)
+			painter.drawPoint(int(pos),i)
 	
 	def buildPath(self):
 		factor = 0.25
