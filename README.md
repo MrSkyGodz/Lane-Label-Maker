@@ -1,6 +1,6 @@
 # Lane Label Maker
  
-Short Cuts:
+## Short Cuts:
 1 : Polygon draw
 
 2 : Polynome fit draw
