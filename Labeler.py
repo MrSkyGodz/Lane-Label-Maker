@@ -162,8 +162,8 @@ class Window(QMainWindow):
 			plt.imshow(gray, interpolation='nearest')
 			plt.show()
 
-		plt.imsave(os.path.join(self.labelPath,"PolyGrandtruth",str(self.idx) + ".png"), gray, cmap='gray')
-		plt.imsave(os.path.join(self.labelPath,"BinaryGrandtruth",str(self.idx) + ".png"), gray2, cmap='gray')
+		plt.imsave(os.path.join(self.labelPath,"PolyGrandtruth",str(self.idx) + "_Label" + ".png"), gray, cmap='gray')
+		plt.imsave(os.path.join(self.labelPath,"BinaryGrandtruth",str(self.idx) + "_Label" + ".png"), gray2, cmap='gray')
 		shutil.copyfile(os.path.join(self.imgPath,self.images[self.idx]), os.path.join(self.labelPath,"images",str(self.idx) + ".jpg"))
 		# print(self.backimg)
 
